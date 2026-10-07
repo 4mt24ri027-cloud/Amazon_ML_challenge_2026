@@ -1,0 +1,16 @@
+# Environments
+.venv/
+
+# IDEs
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Data & Generated Files
+dataset/
+
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
