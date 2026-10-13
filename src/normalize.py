@@ -34,6 +34,9 @@ NATIVE_STATE = {
         "उत्तर प्रदेश": "uttar pradesh", "उत्तराखंड": "uttarakhand",
         "পশ্চিমবঙ্গ": "west bengal", "दिल्ली": "delhi"
     }
+STATE_ABBR = {"tn": "tennessee", "tx": "texas", "md": "maryland", "il": "illinois",
+              "nc": "north carolina", "mh": "maharashtra", "rj": "rajasthan",
+              "mp": "madhya pradesh"}
 
 #  "N/A" becomes the tokens n and a after punctuation is removed; the rest are other
 # placeholder words that would otherwise count as shared tokens between unrelated addresses
@@ -54,7 +57,7 @@ def norm_address(addr) -> frozenset:
 
         text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower()
         text = re.sub(r"[^a-z0-9\s]", " ", text)  # WHY: kills ##, commas, "351-"
-        text = " ".join(STREET_ABBR.get(w,w) for w in text.split())
+        text = " ".join(STATE_ABBR.get(w,w) for w in text.split())
 
         #  \b: match a state code only as a whole word (not inside "maryland")
         for abbr,full in STREET_ABBR.items():
