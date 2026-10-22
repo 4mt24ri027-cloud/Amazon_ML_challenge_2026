@@ -52,3 +52,13 @@ def block_sizes(index: dict) -> pd.Series:
     # WHY a Series: describe() and sort_values() give the size distribution in one line
     return pd.Series({key: len(ids) for key, ids in index.items()})
 
+def get_candidates(name, address, country, index: dict, cap: int) -> set:
+    cands = set()
+    for key in all_keys(name, address, country):
+        ids = index.get(key)
+        # WHY skip big blocks: generic words ("center", "group") match thousands of
+        # unrelated records, so they add cost but no signal
+        if ids is None or len(ids) > cap:
+            continue
+        cands.update(ids)
+    return cands
