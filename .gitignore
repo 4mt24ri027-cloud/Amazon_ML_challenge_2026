@@ -14,3 +14,6 @@ dataset/
 
 # Jupyter Notebooks
 .ipynb_checkpoints/
+
+#file conating all the progress for ai
+entity-resolution-project-progress.md
