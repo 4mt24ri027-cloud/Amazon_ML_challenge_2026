@@ -25,6 +25,7 @@ def address_keys(addr, country) -> set:
 
 from collections import defaultdict
 import pandas as pd
+from collections import Counter
 
 def all_keys(name, address, country) -> set:
     #why union: we want to block on either name or address, not require both
@@ -62,3 +63,14 @@ def get_candidates(name, address, country, index: dict, cap: int) -> set:
             continue
         cands.update(ids)
     return cands
+
+def get_candidates_topk(name, address, country, index: dict, cap: int, k: int) -> set:
+    counts = Counter()
+    for key in all_keys(name, address, country):
+        ids = index.get(key)
+        # WHY keep the cap high: it protects recall, the top-k below controls the cost
+        if ids is None or len(ids) > cap:
+            continue
+        counts.update(ids)
+    # WHY most_common: a record sharing many keys is more likely a true match
+    return {eid for eid, _ in counts.most_common(k)}
