@@ -1,6 +1,6 @@
 # NOTES_02: Day 2, blocking
 
-Measured on the 20k validation entities of the dev sample (pool: S2 228,117 + S3 239,377 = 467,494 records).
+Measured on the 20k validation entities of the dev sample (pool: S2 228,117 + S3 239,377 = 467,494 records). All numbers below are from the re-run after the `norm_address` fix (see "Bug found and fixed"), unless marked otherwise. Notebook: `notebook/02_blocking_eda.ipynb`.
 
 ## What was built
 
@@ -9,7 +9,10 @@ Files: `src/normalize.py` (cleaning) and `src/blocking.py` (keys, index, candida
 ### src/normalize.py
 
 - **`norm_name(name)`**: lowercases, strips accents and punctuation, drops legal suffixes (pvt, ltd, llc, inc ...). Returns a string. Native-script names become `''` (they have no ASCII letters), so they give no name keys.
-- **`norm_address(addr)`**: same cleaning, plus street abbreviations (cir to circle), state codes (TN to tennessee) and native-script state names mapped to English. Returns a `frozenset` of tokens, so reordering and repeats do not matter. Missing address (NaN) gives an empty set. The abbreviation and state maps are plain dicts, so France can be added without code changes.
+- **`norm_address(addr)`**: same cleaning, plus street abbreviations, state codes and native-script state names mapped to English. Returns a `frozenset` of tokens, so reordering and repeats do not matter. Missing address (NaN) gives an empty set. All maps are plain dicts, so France can be added without code changes.
+  - `NATIVE_STATE`: 30 entries, one native name per state (Hindi only for Hindi-belt states). Applied before the ASCII step, because that step would delete native letters.
+  - `STATE_ABBR`: only 8 codes (tn, tx, md, il, nc, mh, rj, mp). `STREET_ABBR`: 8 entries (cir, dr, ave, blvd, st, rd, ln, ct).
+  - `JUNK_TOKENS`: n, a, na, nan, null, none, nil, unknown ("N/A" becomes the tokens n and a).
 
 ### src/blocking.py
 
@@ -27,30 +30,39 @@ Files: `src/normalize.py` (cleaning) and `src/blocking.py` (keys, index, candida
 
 Index once with `build_index` and `prepare_pool`. For each S1 entity: `get_candidates_topk` (cap 1000, k 100) gives about 92 candidates with recall 0.909, then `rerank` keeps the best 20.
 
+## Bug found and fixed
+
+In `norm_address`, the cleaning lines and the `return` sat one indent too deep, inside the `for native, english` loop. The function returned after the first dict entry, so only Andhra Pradesh in Telugu was mapped and every other native state name was deleted by the ASCII step. No error appeared, and the tests missed it because none of them had a native-script state. Fixed by moving those lines out of the loop. Effect: keys went from 1,153,212 to 1,155,909 and recall rose by about 0.1 point. Lesson: test the odd cases (native script, missing address) too.
+
+Native-script check on the full train S2+S3 addresses: after the 30 state names are mapped, only 2,223 addresses still hold non-ASCII text, and it is encoding junk (Â, â, Ñ), not Indian scripts. So the state map covers essentially all native-script addresses.
+
 ## Block sizes (before any cap)
 
-- 1,153,212 keys. Median block = 1 record, 99% of blocks <= 36, 99.9% <= 405, max 14,624.
+- 1,155,909 keys. Mean 4.5, median 1 record, 99% of blocks <= 37, 99.9% <= 412, max 14,624.
 - The biggest blocks are generic words and their prefixes: center, partners, com, and, group, services, india, care.
 
 ## Results
 
 | Setting | Blocking recall | Candidates per S1 |
 | --- | --- | --- |
-| cap=50 | 0.8509 | 39.8 |
-| cap=200 | 0.8951 | 165.6 |
-| cap=1000 | 0.9529 | 809.9 |
-| cap=1000, top-k by plain count, k=20 | 0.8609 | 19.4 |
-| cap=1000, top-k by plain count, k=30 | 0.8704 | 28.9 |
-| cap=1000, top-k by 1/size, k=20 | 0.8644 | 19.4 |
-| cap=1000, top-k by 1/size, k=30 | 0.8768 | 28.9 |
-| first stage top-100 (cap=1000, 1/size) | 0.9087 | 92.3 |
-| **top-100, then rerank, k=20** | **0.8928** | <= 20 |
-| top-100, then rerank, k=30 | 0.8958 | <= 30 |
+| cap=50 | 0.8509 | 39.2 |
+| cap=200 | 0.8951 | 164.0 |
+| cap=1000 | 0.9530 | 810.7 |
+| cap=200, top-k by 1/size, k=20 | 0.8466 | 17.5 |
+| cap=200, top-k by 1/size, k=30 | 0.8579 | 25.4 |
+| cap=1000, top-k by 1/size, k=20 | 0.8651 | 19.4 |
+| cap=1000, top-k by 1/size, k=30 | 0.8772 | 28.9 |
+| cap=1000, top-k by 1/size, k=50 | 0.8912 | 47.5 |
+| first stage top-100 (cap=1000, 1/size) | 0.9091 | 92.3 |
+| **top-100, then rerank, k=20** | **0.8940** | <= 20 |
+| top-100, then rerank, k=30 | 0.8968 | <= 30 |
+
+Old rows, from before the fix and from the first top-k version (plain key count, function no longer in the code, so the notebook cannot reproduce them): k=20 gave 0.8609 at 19.4, k=30 gave 0.8704 at 28.9, k=50 gave 0.8816 at 47.5. They are kept only to show why the 1/size score was added (about +0.4 to +1.0 point at the same cost; the comparison is approximate because of the fix).
 
 - Cap alone cannot meet the target: recall costs too many candidates.
-- Top-k keeps the cap high (protects recall) and lets k control the cost.
-- Reranking the top 100 with a direct name and address comparison gained +2.8 points at k=20 and +1.9 at k=30 over 1/size top-k, at the same cost.
-- Rerank keeps about 98% of what the first stage holds (0.8928 of 0.9087). The remaining gap to 0.953 is in the first stage pool size.
+- Top-k keeps the cap high (protects recall) and lets k control the cost. At the same k, cap=200 is worse than cap=1000.
+- Reranking the top 100 with a direct name and address comparison gained +2.9 points at k=20 and +2.0 at k=30 over 1/size top-k, at the same cost.
+- Rerank keeps about 98% of what the first stage holds (0.8940 of 0.9091). The remaining gap to 0.953 is in the first stage pool size.
 - Comparisons: 20 candidates per S1 entity against a 467,494-record dev pool. The dev pool holds only 4.5% of the unmatched records, so full-scale numbers will be harder (re-check on Day 6).
 
 ## Reading 10 misses (top-30 misses)
@@ -59,8 +71,10 @@ Index once with `build_index` and `prepare_pool`. For each S1 entity: `get_candi
 - House numbers break the address key: 7149 vs 07149, 1302 vs 302, 2242 vs 224, 25/B vs 23/B, `###847`.
 - Missing address (nan) leaves only generic name words (Shyam Marketing, Uptown Bistro).
 - Native-script names give no name keys, so only the address can find them (Maa Tirupati, Smart Indo).
-- Typos and doubled words (Mamregn, Uptown Uptown Bistro) are handled better by a direct similarity than by key counting.
-- Never found by blocking: Maa Tirupati Media, Eye Prairie Care. For Eye Prairie my guess is that its name words are in blocks bigger than the cap; not checked yet.
+- Typos and doubled words (Mamregn, Uptown Uptown Bistro, Eye Eye Prairie Care) are handled better by a direct similarity than by key counting.
+- Never found by blocking: Maa Tirupati Media, Eye Prairie Care. For Eye Prairie the house number differs (2242 vs 224), so no address key is shared, and my guess is that its name words are in blocks bigger than the cap; not checked yet.
+- State codes are unmapped in several misses (AZ, DL, AP), so the state token does not match its full name.
+- The miss record shown for an entity can change between runs, because the code picks the first item of a set. The conclusions did not change.
 - Only 10 examples: hints, not percentages.
 
 ## Decisions
@@ -74,8 +88,10 @@ Index once with `build_index` and `prepare_pool`. For each S1 entity: `get_candi
 
 - Street-plus-city key for addresses without a house number (not written).
 - Address key that tolerates house-number noise (leading zeros, dropped digits, `25/B`).
+- Extend `STATE_ABBR` beyond 8 codes (AZ, DL and AP were seen unmapped). Check `ct`: it is mapped to "court" but is also the state code for Connecticut.
 - Check whether Eye Prairie keys were skipped by the cap (print their block sizes).
 - First-stage pool size: try 300 instead of 100 and measure the rerank time.
 - Measure recall by country, and for native-script names.
+- In the notebook, fix the comment above the first top-k cell (it says "number of shared keys", but the function now uses 1/size).
+- Optional: re-run the cap-only and top-k cells once in a fresh kernel so all rows come from one run.
 - Re-check everything at full scale on Day 6.
-- Tidy `src/blocking.py`: move the imports to the top and delete the unused `Counter` import. Optionally make the prefix length a constant if it gets tuned.
