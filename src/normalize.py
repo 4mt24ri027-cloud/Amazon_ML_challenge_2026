@@ -55,13 +55,13 @@ def norm_address(addr) -> frozenset:
     for native,english in NATIVE_STATE.items():
         text = text.replace(native,english)
 
-        text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower()
-        text = re.sub(r"[^a-z0-9\s]", " ", text)  # WHY: kills ##, commas, "351-"
-        text = " ".join(STATE_ABBR.get(w,w) for w in text.split())
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower()
+    text = re.sub(r"[^a-z0-9\s]", " ", text)  # WHY: kills ##, commas, "351-"
+    text = " ".join(STATE_ABBR.get(w,w) for w in text.split())
 
-        #  \b: match a state code only as a whole word (not inside "maryland")
-        for abbr,full in STREET_ABBR.items():
-            text = re.sub(rf"\b{abbr}\b", full, text)
+    #  \b: match a state code only as a whole word (not inside "maryland")
+    for abbr,full in STREET_ABBR.items():
+        text = re.sub(rf"\b{abbr}\b", full, text)
 
-        #frozen : making it hashable to maek it key and set: beacause address are jumbled and we need to compare them in a set way
-        return frozenset(w for w in text.split() if w not in JUNK_TOKENS)
+    #frozen : making it hashable to maek it key and set: beacause address are jumbled and we need to compare them in a set way
+    return frozenset(w for w in text.split() if w not in JUNK_TOKENS)
