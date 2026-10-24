@@ -64,13 +64,17 @@ def get_candidates(name, address, country, index: dict, cap: int) -> set:
         cands.update(ids)
     return cands
 
+
+import heapq
 def get_candidates_topk(name, address, country, index: dict, cap: int, k: int) -> set:
-    counts = Counter()
+    scores = defaultdict(float)
     for key in all_keys(name, address, country):
         ids = index.get(key)
-        # WHY keep the cap high: it protects recall, the top-k below controls the cost
         if ids is None or len(ids) > cap:
             continue
-        counts.update(ids)
-    # WHY most_common: a record sharing many keys is more likely a true match
-    return {eid for eid, _ in counts.most_common(k)}
+        # WHY 1/size: a rare shared key is strong evidence, a common one is weak
+        w = 1.0 / len(ids)
+        for eid in ids:
+            scores[eid] += w
+    # WHY nlargest: faster than sorting every scored record
+    return set(heapq.nlargest(k, scores, key=scores.get))
