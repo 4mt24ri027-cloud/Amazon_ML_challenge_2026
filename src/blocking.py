@@ -1,5 +1,10 @@
-from src.normalize import norm_name,norm_address
+import heapq
+from collections import defaultdict
 
+import pandas as pd
+from rapidfuzz import fuzz
+
+from src.normalize import norm_name, norm_address
 
 
 def name_keys(name, country) -> set:
@@ -15,6 +20,7 @@ def name_keys(name, country) -> set:
             keys.add(f"p|{country}|{w[:4]}")
     return keys
 
+
 def address_keys(addr, country) -> set:
     tokens = norm_address(addr)
     nums = {t for t in tokens if t.isdigit()}
@@ -23,25 +29,24 @@ def address_keys(addr, country) -> set:
     # WHY number + word together: either alone makes huge blocks, the pair is specific
     return {f"a|{country}|{n}|{w}" for n in nums for w in words}
 
-from collections import defaultdict
-import pandas as pd
-from collections import Counter
 
 def all_keys(name, address, country) -> set:
-    #why union: we want to block on either name or address, not require both
+    # why union: we want to block on either name or address, not require both
     return name_keys(name, country) | address_keys(address, country)
+
 
 # WHY constants: if a column name is different in the data, we fix one line, not the code
 NAME_COL = "business_name"
 ADDRESS_COL = "business_address"
 
+
 def build_index(pool: pd.DataFrame) -> dict:
     index = defaultdict(list)
 
-    #why zip  over columns :much faster than the  iterrows on hundreds of rows
-    for eid,name,addr,country in zip(
-            pool["entity_id"],pool[NAME_COL],pool[ADDRESS_COL],pool["country"]
-             ):
+    # why zip  over columns :much faster than the  iterrows on hundreds of rows
+    for eid, name, addr, country in zip(
+            pool["entity_id"], pool[NAME_COL], pool[ADDRESS_COL], pool["country"]
+    ):
         for key in all_keys(name, addr, country):
             # WHY only the id: keeps memory low, we can look up the row later
             index[key].append(eid)
@@ -52,6 +57,7 @@ def build_index(pool: pd.DataFrame) -> dict:
 def block_sizes(index: dict) -> pd.Series:
     # WHY a Series: describe() and sort_values() give the size distribution in one line
     return pd.Series({key: len(ids) for key, ids in index.items()})
+
 
 def get_candidates(name, address, country, index: dict, cap: int) -> set:
     cands = set()
@@ -65,7 +71,6 @@ def get_candidates(name, address, country, index: dict, cap: int) -> set:
     return cands
 
 
-import heapq
 def get_candidates_topk(name, address, country, index: dict, cap: int, k: int) -> set:
     scores = defaultdict(float)
     for key in all_keys(name, address, country):
@@ -79,7 +84,6 @@ def get_candidates_topk(name, address, country, index: dict, cap: int, k: int) -
     # WHY nlargest: faster than sorting every scored record
     return set(heapq.nlargest(k, scores, key=scores.get))
 
-from rapidfuzz import fuzz
 
 def prepare_pool(pool: pd.DataFrame) -> dict:
     # WHY precompute: cleaning 467k records once is far cheaper than cleaning them again for every S1 entity
