@@ -78,3 +78,27 @@ def get_candidates_topk(name, address, country, index: dict, cap: int, k: int) -
             scores[eid] += w
     # WHY nlargest: faster than sorting every scored record
     return set(heapq.nlargest(k, scores, key=scores.get))
+
+from rapidfuzz import fuzz
+
+def prepare_pool(pool: pd.DataFrame) -> dict:
+    # WHY precompute: cleaning 467k records once is far cheaper than cleaning them again for every S1 entity
+    return {
+        eid: (norm_name(n), norm_address(a))
+        for eid, n, a in zip(pool["entity_id"], pool[NAME_COL], pool[ADDRESS_COL])
+    }
+
+
+def rerank(name, address, cand_ids, prepared: dict, k: int) -> set:
+    n1, a1 = norm_name(name), norm_address(address)
+    scored = []
+    for cid in cand_ids:
+        n2, a2 = prepared[cid]
+        # WHY token_set_ratio: forgives dropped or doubled words ("Uptown Uptown Bistro")
+        name_sim = fuzz.token_set_ratio(n1, n2) / 100 if n1 and n2 else 0.0
+        # WHY overlap: reordered or abbreviated addresses still share most tokens
+        addr_sim = len(a1 & a2) / len(a1 | a2) if a1 and a2 else 0.0
+        # WHY the sum: a strong address can rescue an unrelated name (Mirasol case)
+        scored.append((name_sim + addr_sim, cid))
+    scored.sort(reverse=True)
+    return {cid for _, cid in scored[:k]}
