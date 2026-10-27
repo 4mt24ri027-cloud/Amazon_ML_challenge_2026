@@ -34,3 +34,19 @@ Feature
     What it means: Counts how many exact whole words are shared between the two names, divided by the total unique words across both.
 
     In one line: "Strict word counter—if 2 out of 3 total words match exactly, the score is 0.67."
+
+
+
+
+### `addr_features(a1, a2)` — Address Similarity Features
+
+Computes 6 numerical features (`0.0` to `1.0`) from two tokenised address sets (`frozenset`) for entity resolution. It separates **street/locality words** from **house/PIN numbers** (stripping leading zeros like `07149` -> `7149`) so the model can handle partial addresses and distinguish between next-door neighbours.
+
+| Feature | Range | What It Indicates |
+| :--- | :--- | :--- |
+| **`addr_missing`** | `0` or `1` | `1` if either address is empty, preventing missing data from being treated as a mismatch. |
+| **`addr_jaccard`** | `0.0–1.0` | Overall token overlap (shared tokens divided by total unique tokens across both addresses). |
+| **`addr_min`** | `0.0–1.0` | Overlap relative to the **shorter** address—scores `1.0` when a brief address is fully contained inside a detailed one. |
+| **`num_match`** | `0` or `1` | `1` if both addresses contain numbers and share at least one matching house, flat, or PIN number. |
+| **`num_conflict`** | `0` or `1` | `1` if both addresses contain numbers but share **none** (e.g., neighbours on the same street with different house numbers). |
+| **`word_jaccard`** | `0.0–1.0` | Overlap of alphabetical words only (street, area, city), ignoring all numbers. |
