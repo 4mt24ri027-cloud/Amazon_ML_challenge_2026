@@ -51,3 +51,9 @@ def addr_features(a1: frozenset, a2: frozenset) -> dict:
         "num_conflict": int(both_have_nums and not (n1 & n2)),
         "word_jaccard": len(w1 & w2) / len(w1 | w2) if (w1 | w2) else 0.0,
     }
+
+
+
+def pair_features(n1: str, a1: frozenset, n2: str, a2: frozenset) -> dict:
+    # WHY one merged dict: the classifier needs one flat row per pair
+    return {**name_features(n1, n2), **addr_features(a1, a2)}
