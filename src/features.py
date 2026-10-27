@@ -25,3 +25,29 @@ def name_features(n1: str, n2: str) -> dict:
         "name_tri": len(g1 & g2) / len(g1 | g2),
         "name_tok": len(t1 & t2) / len(t1 | t2),
     }
+
+
+def addr_features(a1: frozenset, a2: frozenset) -> dict:
+    # WHY flag: a missing address is "unknown", not "different"
+    if not a1 or not a2:
+        return {"addr_missing": 1, "addr_jaccard": 0.0, "addr_min": 0.0,
+                "num_match": 0, "num_conflict": 0, "word_jaccard": 0.0}
+
+    # WHY lstrip("0"): 07149 and 7149 are the same house number written differently
+    n1 = {t.lstrip("0") or "0" for t in a1 if t.isdigit()}
+    n2 = {t.lstrip("0") or "0" for t in a2 if t.isdigit()}
+    w1 = {t for t in a1 if t.isalpha()}
+    w2 = {t for t in a2 if t.isalpha()}
+
+    both_have_nums = bool(n1) and bool(n2)
+    shared = len(a1 & a2)
+    return {
+        "addr_missing": 0,
+        "addr_jaccard": shared / len(a1 | a2),
+        # WHY min: one address often lacks parts the other has
+        "addr_min": shared / min(len(a1), len(a2)),
+        "num_match": int(both_have_nums and bool(n1 & n2)),
+        # WHY needs both: a missing number is unknown, not a conflict
+        "num_conflict": int(both_have_nums and not (n1 & n2)),
+        "word_jaccard": len(w1 & w2) / len(w1 | w2) if (w1 | w2) else 0.0,
+    }
