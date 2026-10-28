@@ -1,0 +1,20 @@
+{
+  "trained_on": "dev sample: 80,000 train entities, 2,309,975 pairs",
+  "val_macro_f05": 0.9248,
+  "features": [
+    "name_missing",
+    "name_set",
+    "name_sort",
+    "name_ratio",
+    "name_tri",
+    "name_tok",
+    "addr_missing",
+    "addr_jaccard",
+    "addr_min",
+    "num_match",
+    "num_conflict",
+    "word_jaccard"
+  ],
+  "threshold": 0.7,
+  "one_per_record": true
+}
