@@ -6,18 +6,18 @@ FEATURES = ["name_missing", "name_set", "name_sort", "name_ratio", "name_tri", "
             "word_jaccard"]
 
 
-def train_matcher(train_pairs):
-    # WHY LightGBM: handles 0/1 flags and 0-1 scores without scaling, fast on 2.3M rows
+def train_matcher(train_pairs, features=FEATURES):
+    # WHY a parameter: the same code then trains the old 12-feature model and the new one
     model = lgb.LGBMClassifier(n_estimators=200, learning_rate=0.1, num_leaves=31,
                                random_state=42, verbose=-1)
-    model.fit(train_pairs[FEATURES], train_pairs["label"])
+    model.fit(train_pairs[features], train_pairs["label"])
     return model
 
 
-def predict_matches(pairs, model, threshold=0.70):
+def predict_matches(pairs, model, threshold=0.70, features=FEATURES):
     # WHY copy: we add a column and must not change the caller's table
     df = pairs[["s1", "cand"]].copy()
-    df["p"] = model.predict_proba(pairs[FEATURES])[:, 1]
+    df["p"] = model.predict_proba(pairs[features])[:, 1]
     # WHY threshold first: low-probability pairs should never claim a record
     df = df[df["p"] >= threshold]
     # WHY sort + drop_duplicates: ground truth never shares a record between S1 entities,

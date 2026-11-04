@@ -57,3 +57,18 @@ def addr_features(a1: frozenset, a2: frozenset) -> dict:
 def pair_features(n1: str, a1: frozenset, n2: str, a2: frozenset) -> dict:
     # WHY one merged dict: the classifier needs one flat row per pair
     return {**name_features(n1, n2), **addr_features(a1, a2)}
+
+
+def add_relative_features(pairs):
+    # WHY copy: we add columns and must not change the caller's table
+    df = pairs.copy()
+    g = df.groupby("s1")
+    for col in ["addr_jaccard", "addr_min", "name_tri", "name_set"]:
+        # WHY gap: 0 = this pair is the best (or tied) in its group; large = another candidate is better
+        df[f"{col}_gap"] = g[col].transform("max") - df[col]
+        # WHY method="min": ties share a rank, so they never look better than they are
+        df[f"{col}_rank"] = g[col].rank(method="min", ascending=False)
+    # WHY these two: many candidates sharing the house number means the address alone is not unique
+    df["n_num_match"] = g["num_match"].transform("sum")
+    df["n_cands"] = g["num_match"].transform("size")
+    return df
