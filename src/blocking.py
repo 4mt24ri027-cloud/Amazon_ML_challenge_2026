@@ -23,12 +23,14 @@ def name_keys(name, country) -> set:
 
 def address_keys(addr, country) -> set:
     tokens = norm_address(addr)
-    nums = {t for t in tokens if t.isdigit()}
+    # WHY lstrip("0"): 0017 and 17 are the same house number written differently,
+    # and the key must be identical on both sides or the pair never meets
+    # ("or '0'" keeps a plain 0 from becoming an empty string)
+    nums = {t.lstrip("0") or "0" for t in tokens if t.isdigit()}
     # WHY min length 4: short words are too common to separate addresses
     words = {t for t in tokens if t.isalpha() and len(t) >= 4}
     # WHY number + word together: either alone makes huge blocks, the pair is specific
     return {f"a|{country}|{n}|{w}" for n in nums for w in words}
-
 
 def all_keys(name, address, country) -> set:
     # why union: we want to block on either name or address, not require both
