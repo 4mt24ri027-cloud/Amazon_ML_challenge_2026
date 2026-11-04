@@ -105,11 +105,22 @@ def rerank(name, address, cand_ids, prepared: dict, k: int) -> set:
     scored = []
     for cid in cand_ids:
         n2, a2 = prepared[cid]
-        # WHY token_set_ratio: forgives dropped or doubled words ("Uptown Uptown Bistro")
-        name_sim = fuzz.token_set_ratio(n1, n2) / 100 if n1 and n2 else 0.0
-        # WHY overlap: reordered or abbreviated addresses still share most tokens
-        addr_sim = len(a1 & a2) / len(a1 | a2) if a1 and a2 else 0.0
-        # WHY the sum: a strong address can rescue an unrelated name (Mirasol case)
-        scored.append((name_sim + addr_sim, cid))
+        # WHY None, not 0: "unknown" (empty name, missing address) must stay apart from "different"
+        # token_set_ratio forgives dropped or doubled words ("Uptown Uptown Bistro")
+        name_sim = fuzz.token_set_ratio(n1, n2) / 100 if n1 and n2 else None
+        # overlap: reordered or abbreviated addresses still share most tokens
+        addr_sim = len(a1 & a2) / len(a1 | a2) if a1 and a2 else None
+
+        if name_sim is None and addr_sim is None:
+            score = 0.0
+        elif name_sim is None:
+            # WHY doubled: the name is unknown, so the address must carry the whole score
+            score = 2 * addr_sim
+        elif addr_sim is None:
+            score = 2 * name_sim
+        else:
+            # WHY the sum: a strong address can rescue an unrelated name (Mirasol case)
+            score = name_sim + addr_sim
+        scored.append((score, cid))
     scored.sort(reverse=True)
     return {cid for _, cid in scored[:k]}
