@@ -7,9 +7,13 @@ import unicodedata
 LEGAL_SUFFIXES = {"pvt", "private", "ltd", "limited", "llc", "inc", "corp",
                   "corporation", "llp", "pllc", "co"}
 
-def norm_name(name)  ->str:
-    # NFKD: it splits "é" into "e" plus an accent mark, and ascii-ignore then drops the mark
-    text = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode().lower()
+def norm_name(name) -> str:
+    # WHY: pandas reads a real name like "NA" as NaN. A missing name must mean
+    # "unknown" (''), the same as a native-script name, not crash the run
+    if name is None or name != name:
+        return ""
+    # WHY str(): a safe guard in case a non-text value ever slips in
+    text = unicodedata.normalize('NFKD', str(name)).encode('ascii', 'ignore').decode().lower()
 
     #  replace (- ,  _ ) other than space ,letter or number with a space, not "": "foo-bar" must become two words, not "foobar"
     text = re.sub(r'[^a-z0-9\s]',' ',text)
