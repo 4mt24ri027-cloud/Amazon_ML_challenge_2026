@@ -1,0 +1,35 @@
+{
+  "trained_on": "first 200,000 of the 300k hold-out entities, pool 1,402,291, 22 features",
+  "eval_on": "last 100,000 hold-out entities",
+  "eval_macro_f05": {
+    "t0.6": 0.9452,
+    "t0.7": 0.9445,
+    "t0.8": 0.9413
+  },
+  "frozen_v4_same_eval": 0.9405,
+  "features": [
+    "name_missing",
+    "name_set",
+    "name_sort",
+    "name_ratio",
+    "name_tri",
+    "name_tok",
+    "addr_missing",
+    "addr_jaccard",
+    "addr_min",
+    "num_match",
+    "num_conflict",
+    "word_jaccard",
+    "addr_jaccard_gap",
+    "addr_jaccard_rank",
+    "addr_min_gap",
+    "addr_min_rank",
+    "name_tri_gap",
+    "name_tri_rank",
+    "name_set_gap",
+    "name_set_rank",
+    "n_num_match",
+    "n_cands"
+  ],
+  "note": "experiment only; the final model is retrained on full-scale pairs (Day 6, Kaggle)"
+}
