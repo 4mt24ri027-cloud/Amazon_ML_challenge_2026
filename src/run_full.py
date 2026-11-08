@@ -151,7 +151,7 @@ def main():
 
     scores = {t: macro_f05(final_pred(t), truth, tune) for t in [0.5, 0.6, 0.7, 0.8]}
     log("tune scores:", {t: round(v, 4) for t, v in scores.items()})
-    best = max(scores, key=scores.get)
+    best = max(scores, key=scores.get) # selecting key
     pred = final_pred(best)
 
     tp = n_pred = n_true = single = single_false = 0
@@ -173,5 +173,5 @@ def main():
     json.dump(res, open(W + "results.json", "w"), indent=2)
     log("RESULTS", res)
 
-if __name__ == "__main__":
+if __name__ == "__main__": #it is main script
     main()
